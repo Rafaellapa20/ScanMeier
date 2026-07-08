@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Meier Scan</string>
+    <string name="action_refresh">Neu laden</string>
+    <string name="action_scan">Scannen</string>
+    <string name="camera_permission_required">Kameraberechtigung erforderlich</string>
+    <string name="invalid_code_ean13">Ungültiger Code (nicht EAN-13)</string>
+    <string name="scan_canceled">Scan abgebrochen</string>
+    <string name="scan_prompt">Auf den Code richten</string>
+    <string name="select_image_title">Bild auswählen</string>
+    <string name="no_internet_title">Keine Internetverbindung</string>
+    <string name="no_internet_message">Bitte überprüfen Sie Ihre Verbindung und versuchen Sie es erneut.</string>
+    <string name="action_retry">Erneut versuchen</string>
+</resources>

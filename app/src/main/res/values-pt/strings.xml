@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Ernst Meier AG</string>
+    <string name="action_refresh">Recarregar</string>
+    <string name="action_scan">Digitalizar</string>
+    <string name="camera_permission_required">É necessária a permissão da câmara para usar o scanner</string>
+    <string name="invalid_code_ean13">Código inválido (não é EAN-13)</string>
+    <string name="scan_canceled">Digitalização cancelada</string>
+    <string name="scan_prompt">Aponte para o código</string>
+    <string name="select_image_title">Selecionar imagem</string>
+</resources>

@@ -1,0 +1,27 @@
+# Build outputs
+**/build/
+*.apk
+*.ap_
+*.dex
+*.class
+
+# Gradle files
+.gradle/
+build/
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# Local configuration
+local.properties
+
+# Log files
+*.log
+
+# System files
+.DS_Store
+Thumbs.db
