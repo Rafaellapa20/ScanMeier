@@ -594,7 +594,7 @@ class MainActivity : AppCompatActivity() {
         builder.show()
     }
 
-    // Verificação silenciosa ao abrir a app - verifica estado, expiração e atualizações
+    // Verificação ao abrir a app - bloqueia imediatamente se desativada, verifica update em background
     private fun checkForUpdatesOnStartup() {
         Thread {
             try {
@@ -614,43 +614,37 @@ class MainActivity : AppCompatActivity() {
                     val response = connection.inputStream.bufferedReader().use { it.readText() }
                     val json = org.json.JSONObject(response)
                     val currentVersion = packageManager.getPackageInfo(packageName, 0).versionName
-
-                    // 1. Verificar se há nova versão PRIMEIRO - permite reativar a app via update
                     val latestVersion = json.getString("version").trim()
                     val downloadUrl = json.getString("url")
-                    if (isVersionNewer(currentVersion, latestVersion)) {
-                        runOnUiThread {
-                            showUpdateAvailableDialog(latestVersion, downloadUrl, mandatory = true)
-                        }
-                        return@Thread // Não verificar expiração se há update disponível
-                    }
+                    val hasUpdate = isVersionNewer(currentVersion, latestVersion)
 
-                    // 2. Verificar se a app está ativa (campo "active": false desativa a app)
+                    // 1. Verificar se a app está desativada manualmente
                     val isActive = if (json.has("active")) json.getBoolean("active") else true
-                    if (!isActive) {
-                        val msg = if (json.has("inactive_message"))
-                            json.getString("inactive_message")
-                        else
-                            "Diese App wurde deaktiviert. Bitte wenden Sie sich an den Administrator."
-                        runOnUiThread { showAppDisabledDialog(msg) }
-                        return@Thread
-                    }
 
-                    // 3. Verificar data de expiração automática (campo "expires": "YYYY-MM-DD")
+                    // 2. Verificar data de expiração automática
+                    var isExpired = false
                     if (json.has("expires")) {
-                        val expireStr = json.getString("expires")
                         try {
                             val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
-                            val expireDate = sdf.parse(expireStr)
-                            if (expireDate != null && java.util.Date().after(expireDate)) {
-                                val msg = if (json.has("inactive_message"))
-                                    json.getString("inactive_message")
-                                else
-                                    "Die Lizenz dieser App ist abgelaufen. Bitte wenden Sie sich an den Administrator."
-                                runOnUiThread { showAppDisabledDialog(msg) }
-                                return@Thread
+                            val expireDate = sdf.parse(json.getString("expires"))
+                            if (expireDate != null && java.util.Date().after(expireDate)) isExpired = true
+                        } catch (_: Exception) {}
+                    }
+
+                    val msg = if (json.has("inactive_message")) json.getString("inactive_message") else "Offline"
+
+                    runOnUiThread {
+                        if (!isActive || isExpired) {
+                            // Bloqueia a app imediatamente - mostra "Offline"
+                            // Se houver update disponível, aparece o diálogo de update por cima
+                            showAppDisabledDialog(msg)
+                            if (hasUpdate) {
+                                showUpdateAvailableDialog(latestVersion, downloadUrl, mandatory = true)
                             }
-                        } catch (_: Exception) { /* data inválida, ignorar */ }
+                        } else if (hasUpdate) {
+                            // App ativa e com update disponível
+                            showUpdateAvailableDialog(latestVersion, downloadUrl, mandatory = true)
+                        }
                     }
                 }
             } catch (_: Exception) {
