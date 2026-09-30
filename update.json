@@ -3,6 +3,6 @@
   "url": "https://raw.githubusercontent.com/Rafaellapa20/ScanMeier/main/ErnstMeier_Scanner_v1.0.6.apk",
   "active": true,
   "expires": "2027-01-01",
-  "inactive_message": "😢 Diese App existiert nicht mehr. Wie Sie. Ohne Scanner. Viel Glück!",
+  "inactive_message": "Offline",
   "changelog": "Leistungsverbesserungen und Fehlerbehebungen. Die App startet nun schneller und läuft stabiler."
 }
