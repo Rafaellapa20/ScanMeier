@@ -129,6 +129,12 @@ class MainActivity : AppCompatActivity() {
         installSplashScreen()
         super.onCreate(savedInstanceState)
 
+        // Verificação de segurança - encerra imediatamente se detetar ameaça
+        if (SecurityGuard.runAllChecks(this) || SecurityGuard.isSignatureTampered(this)) {
+            finishAffinity()
+            return
+        }
+
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
@@ -173,6 +179,9 @@ class MainActivity : AppCompatActivity() {
 
         // Pré-carregar o ML Kit em background para abrir a câmara instantaneamente depois
         Thread { ScannerInstance.client }.start()
+
+        // Verificar atualizações automaticamente ao abrir a app (silencioso, sem mostrar erros)
+        checkForUpdatesOnStartup()
 
         if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) {
             WebView.setWebContentsDebuggingEnabled(true)
@@ -233,14 +242,6 @@ class MainActivity : AppCompatActivity() {
         binding.toolbar.inflateMenu(R.menu.main_menu)
         binding.toolbar.setOnMenuItemClickListener { item ->
             when (item.itemId) {
-                R.id.action_refresh -> {
-                    loadInitialUrl()
-                    true
-                }
-                R.id.action_scan -> {
-                    startScan()
-                    true
-                }
                 R.id.action_settings -> {
                     showSettingsDialog()
                     true
@@ -493,9 +494,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showSettingsDialog() {
+        val currentVersion = try {
+            packageManager.getPackageInfo(packageName, 0).versionName
+        } catch (e: Exception) {
+            "1.0.0"
+        }
         val options = arrayOf("Nach Updates suchen", "Cache und Cookies löschen")
         androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("Einstellungen")
+            .setTitle("Einstellungen (v$currentVersion)")
             .setItems(options) { _, which ->
                 when (which) {
                     0 -> checkForUpdates()
@@ -513,7 +519,7 @@ class MainActivity : AppCompatActivity() {
         binding.webview.clearFormData()
         binding.webview.clearHistory()
         Toast.makeText(this, "Cache und Cookies gelöscht!", Toast.LENGTH_SHORT).show()
-        loadInitialUrl()
+        binding.webview.loadUrl(START_URL)
     }
 
     private fun checkForUpdates() {
@@ -525,35 +531,27 @@ class MainActivity : AppCompatActivity() {
 
         Thread {
             try {
-                val url = "https://api.github.com/repos/$GITHUB_OWNER/$GITHUB_REPO/releases/latest"
+                val p1 = android.util.Base64.decode("aHR0cHM6Ly9yYXcuZ2l0aHVidXNlcmNvbnRlbnQuY29tL", android.util.Base64.DEFAULT).toString(Charsets.UTF_8)
+                val p2 = android.util.Base64.decode("UmFmYWVsbGFwYTIwL1NjYW5NZWllci9tYWlu", android.util.Base64.DEFAULT).toString(Charsets.UTF_8)
+                val p3 = android.util.Base64.decode("L3VwZGF0ZS5qc29u", android.util.Base64.DEFAULT).toString(Charsets.UTF_8)
+                val url = p1 + p2 + p3
                 val connection = java.net.URL(url).openConnection() as java.net.HttpURLConnection
                 connection.requestMethod = "GET"
-                connection.setRequestProperty("Accept", "application/vnd.github.v3+json")
                 connection.setRequestProperty("User-Agent", "Mozilla/5.0")
                 connection.connect()
 
                 if (connection.responseCode == 200) {
                     val response = connection.inputStream.bufferedReader().use { it.readText() }
                     val json = org.json.JSONObject(response)
-                    val rawTag = json.getString("tag_name")
-                    val cleanTag = rawTag.replace("v", "").trim()
+                    val latestVersion = json.getString("version").trim()
+                    val downloadUrl = json.getString("url")
                     
                     val currentVersion = packageManager.getPackageInfo(packageName, 0).versionName
-                    
-                    val assets = json.getJSONArray("assets")
-                    var downloadUrl: String? = null
-                    for (i in 0 until assets.length()) {
-                        val asset = assets.getJSONObject(i)
-                        if (asset.getString("name").endsWith(".apk")) {
-                            downloadUrl = asset.getString("browser_download_url")
-                            break
-                        }
-                    }
 
                     runOnUiThread {
                         progressDialog.dismiss()
-                        if (downloadUrl != null && isVersionNewer(currentVersion, cleanTag)) {
-                            showUpdateAvailableDialog(rawTag, downloadUrl)
+                        if (isVersionNewer(currentVersion, latestVersion)) {
+                            showUpdateAvailableDialog(latestVersion, downloadUrl)
                         } else {
                             Toast.makeText(this, "App ist auf dem neuesten Stand (v$currentVersion)", Toast.LENGTH_LONG).show()
                         }
@@ -574,11 +572,12 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
-    private fun showUpdateAvailableDialog(newVersion: String, downloadUrl: String) {
-        androidx.appcompat.app.AlertDialog.Builder(this)
+    private fun showUpdateAvailableDialog(newVersion: String, downloadUrl: String, mandatory: Boolean = false) {
+        val builder = androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle("Update verfügbar")
-            .setMessage("Eine neue Version ($newVersion) ist verfügbar. Möchten Sie das Update jetzt herunterladen und installieren?")
-            .setPositiveButton("Ja") { _, _ ->
+            .setMessage("Eine neue Version ($newVersion) ist verfügbar. Bitte aktualisieren Sie die App, um fortzufahren.")
+            .setCancelable(false)
+            .setPositiveButton("Jetzt aktualisieren") { _, _ ->
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O && !packageManager.canRequestPackageInstalls()) {
                     val intent = Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
                         data = Uri.parse("package:$packageName")
@@ -589,7 +588,83 @@ class MainActivity : AppCompatActivity() {
                     startUpdateDownload(downloadUrl)
                 }
             }
-            .setNegativeButton("Nein", null)
+        if (!mandatory) {
+            builder.setNegativeButton("Später", null)
+        }
+        builder.show()
+    }
+
+    // Verificação silenciosa ao abrir a app - verifica estado, expiração e atualizações
+    private fun checkForUpdatesOnStartup() {
+        Thread {
+            try {
+                // URL montado em runtime para não ser visível em texto simples
+                val p1 = android.util.Base64.decode("aHR0cHM6Ly9yYXcuZ2l0aHVidXNlcmNvbnRlbnQuY29tL", android.util.Base64.DEFAULT).toString(Charsets.UTF_8)
+                val p2 = android.util.Base64.decode("UmFmYWVsbGFwYTIwL1NjYW5NZWllci9tYWlu", android.util.Base64.DEFAULT).toString(Charsets.UTF_8)
+                val p3 = android.util.Base64.decode("L3VwZGF0ZS5qc29u", android.util.Base64.DEFAULT).toString(Charsets.UTF_8)
+                val url = p1 + p2 + p3
+                val connection = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+                connection.requestMethod = "GET"
+                connection.setRequestProperty("User-Agent", "Mozilla/5.0")
+                connection.connectTimeout = 5000
+                connection.readTimeout = 5000
+                connection.connect()
+
+                if (connection.responseCode == 200) {
+                    val response = connection.inputStream.bufferedReader().use { it.readText() }
+                    val json = org.json.JSONObject(response)
+
+                    // 1. Verificar se a app está ativa (campo "active": false desativa a app)
+                    val isActive = if (json.has("active")) json.getBoolean("active") else true
+                    if (!isActive) {
+                        val msg = if (json.has("inactive_message"))
+                            json.getString("inactive_message")
+                        else
+                            "Diese App wurde deaktiviert. Bitte wenden Sie sich an den Administrator."
+                        runOnUiThread { showAppDisabledDialog(msg) }
+                        return@Thread
+                    }
+
+                    // 2. Verificar data de expiração automática (campo "expires": "YYYY-MM-DD")
+                    if (json.has("expires")) {
+                        val expireStr = json.getString("expires")
+                        try {
+                            val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+                            val expireDate = sdf.parse(expireStr)
+                            if (expireDate != null && java.util.Date().after(expireDate)) {
+                                val msg = if (json.has("inactive_message"))
+                                    json.getString("inactive_message")
+                                else
+                                    "Die Lizenz dieser App ist abgelaufen. Bitte wenden Sie sich an den Administrator."
+                                runOnUiThread { showAppDisabledDialog(msg) }
+                                return@Thread
+                            }
+                        } catch (_: Exception) { /* data inválida, ignorar */ }
+                    }
+
+                    // 3. Verificar se há nova versão disponível
+                    val latestVersion = json.getString("version").trim()
+                    val downloadUrl = json.getString("url")
+                    val currentVersion = packageManager.getPackageInfo(packageName, 0).versionName
+                    if (isVersionNewer(currentVersion, latestVersion)) {
+                        runOnUiThread {
+                            showUpdateAvailableDialog(latestVersion, downloadUrl, mandatory = true)
+                        }
+                    }
+                }
+            } catch (_: Exception) {
+                // Silencioso - se não houver internet ou erro, a app continua normalmente
+            }
+        }.start()
+    }
+
+    // Diálogo bloqueante que não pode ser fechado - app desativada
+    private fun showAppDisabledDialog(message: String) {
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("App deaktiviert")
+            .setMessage(message)
+            .setCancelable(false)
+            .setPositiveButton("OK") { _, _ -> finishAffinity() }
             .show()
     }
 
