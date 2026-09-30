@@ -613,8 +613,19 @@ class MainActivity : AppCompatActivity() {
                 if (connection.responseCode == 200) {
                     val response = connection.inputStream.bufferedReader().use { it.readText() }
                     val json = org.json.JSONObject(response)
+                    val currentVersion = packageManager.getPackageInfo(packageName, 0).versionName
 
-                    // 1. Verificar se a app está ativa (campo "active": false desativa a app)
+                    // 1. Verificar se há nova versão PRIMEIRO - permite reativar a app via update
+                    val latestVersion = json.getString("version").trim()
+                    val downloadUrl = json.getString("url")
+                    if (isVersionNewer(currentVersion, latestVersion)) {
+                        runOnUiThread {
+                            showUpdateAvailableDialog(latestVersion, downloadUrl, mandatory = true)
+                        }
+                        return@Thread // Não verificar expiração se há update disponível
+                    }
+
+                    // 2. Verificar se a app está ativa (campo "active": false desativa a app)
                     val isActive = if (json.has("active")) json.getBoolean("active") else true
                     if (!isActive) {
                         val msg = if (json.has("inactive_message"))
@@ -625,7 +636,7 @@ class MainActivity : AppCompatActivity() {
                         return@Thread
                     }
 
-                    // 2. Verificar data de expiração automática (campo "expires": "YYYY-MM-DD")
+                    // 3. Verificar data de expiração automática (campo "expires": "YYYY-MM-DD")
                     if (json.has("expires")) {
                         val expireStr = json.getString("expires")
                         try {
@@ -640,16 +651,6 @@ class MainActivity : AppCompatActivity() {
                                 return@Thread
                             }
                         } catch (_: Exception) { /* data inválida, ignorar */ }
-                    }
-
-                    // 3. Verificar se há nova versão disponível
-                    val latestVersion = json.getString("version").trim()
-                    val downloadUrl = json.getString("url")
-                    val currentVersion = packageManager.getPackageInfo(packageName, 0).versionName
-                    if (isVersionNewer(currentVersion, latestVersion)) {
-                        runOnUiThread {
-                            showUpdateAvailableDialog(latestVersion, downloadUrl, mandatory = true)
-                        }
                     }
                 }
             } catch (_: Exception) {
