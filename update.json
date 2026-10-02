@@ -4,5 +4,5 @@
   "active": true,
   "expires": "2027-01-01",
   "inactive_message": "Offline",
-  "changelog": "Leistungsverbesserungen und Fehlerbehebungen. Die App startet nun schneller und läuft stabiler."
+  "changelog": "Verbesserungen beim Barcode-Scan und Leistungsoptimierungen. Die App reagiert nun schneller und der Scanner erkennt Barcodes zuverlässiger."
 }

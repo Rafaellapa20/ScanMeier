@@ -653,10 +653,10 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
-    // Diálogo bloqueante que não pode ser fechado - app desativada
+    // Diálogo bloqueante que não pode ser fechado - app offline
     private fun showAppDisabledDialog(message: String) {
         androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("App deaktiviert")
+            .setTitle("Offline")
             .setMessage(message)
             .setCancelable(false)
             .setPositiveButton("OK") { _, _ -> finishAffinity() }
