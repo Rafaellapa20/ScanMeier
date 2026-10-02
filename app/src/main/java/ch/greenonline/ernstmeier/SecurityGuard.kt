@@ -4,16 +4,13 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Debug
 import java.io.File
+import java.security.MessageDigest
 
 /**
  * Classe de segurança - deteta tentativas de modificação, análise ou hacking da app.
  * Se detetar qualquer ameaça, encerra a app imediatamente sem aviso.
  */
 object SecurityGuard {
-
-    // Hash SHA-256 da assinatura original do APK (calculado na primeira compilação legítima)
-    // Codificado em partes para não ser visível em texto simples
-    private val SIG_PART_1 = android.util.Base64.decode("Y2guZ3JlZW5vbmxpbmUuZXJuc3RtZWllcg==", android.util.Base64.DEFAULT).toString(Charsets.UTF_8)
 
     fun runAllChecks(context: Context): Boolean {
         return isDebuggerConnected()
@@ -63,11 +60,12 @@ object SecurityGuard {
             ).toString(Charsets.UTF_8)
             context.packageName != expectedPackage
         } catch (e: Exception) {
-            true // Se falhar a verificação, considera comprometido
+            true
         }
     }
 
-    // 5. Verifica assinatura do APK - deteta se foi re-assinado por terceiros
+    // 5. Verifica o hash EXATO do certificado de assinatura
+    // Se o APK for re-assinado com qualquer outra chave → fecha imediatamente
     fun isSignatureTampered(context: Context): Boolean {
         return try {
             val pm = context.packageManager
@@ -78,10 +76,27 @@ object SecurityGuard {
                 @Suppress("DEPRECATION")
                 pm.getPackageInfo(context.packageName, PackageManager.GET_SIGNATURES).signatures
             }
-            // Se não houver assinatura, está comprometido
-            signatures == null || signatures.isEmpty()
+
+            if (signatures == null || signatures.isEmpty()) return true
+
+            // Calcular o hash SHA-256 do certificado atual
+            val certBytes = signatures[0].toByteArray()
+            val md = MessageDigest.getInstance("SHA-256")
+            val hashBytes = md.digest(certBytes)
+            val actualHash = hashBytes.joinToString("") { "%02x".format(it) }
+
+            // Hash esperado dividido em partes para não ser visível em texto simples
+            val h1 = android.util.Base64.decode("MmU5N2IzMDU5NjZj", android.util.Base64.DEFAULT).toString(Charsets.UTF_8)
+            val h2 = android.util.Base64.decode("NDc1NzQ4MDczMWZj", android.util.Base64.DEFAULT).toString(Charsets.UTF_8)
+            val h3 = android.util.Base64.decode("MzkyMDhjNDdkOWZh", android.util.Base64.DEFAULT).toString(Charsets.UTF_8)
+            val h4 = android.util.Base64.decode("YjA1MmY0YmU3NzBm", android.util.Base64.DEFAULT).toString(Charsets.UTF_8)
+            val h5 = android.util.Base64.decode("MTU2YjE4YWQwNjVj", android.util.Base64.DEFAULT).toString(Charsets.UTF_8)
+            val h6 = android.util.Base64.decode("YmFlYw==", android.util.Base64.DEFAULT).toString(Charsets.UTF_8)
+            val expectedHash = h1 + h2 + h3 + h4 + h5 + h6
+
+            actualHash != expectedHash
         } catch (e: Exception) {
-            true
+            true // Se falhar a verificação, considera comprometido
         }
     }
 }
