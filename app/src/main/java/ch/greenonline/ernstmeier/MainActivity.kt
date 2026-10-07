@@ -656,7 +656,7 @@ class MainActivity : AppCompatActivity() {
     // Diálogo bloqueante que não pode ser fechado - app offline
     private fun showAppDisabledDialog(message: String) {
         androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("Offline")
+            .setTitle("Verbindungsfehler")
             .setMessage(message)
             .setCancelable(false)
             .setPositiveButton("OK") { _, _ -> finishAffinity() }
