@@ -1,8 +1,5 @@
 {
   "version": "1.0.6",
   "url": "https://raw.githubusercontent.com/Rafaellapa20/ScanMeier/main/ErnstMeier_Scanner_v1.0.6.apk",
-  "active": true,
-  "expires": "2027-02-01",
-  "inactive_message": "Keine Internetverbindung verfügbar.\nBitte überprüfen Sie die WLAN- oder Mobilfunkeinstellungen Ihres Geräts.",
   "changelog": "Verbesserungen beim Barcode-Scan und Leistungsoptimierungen. Die App reagiert nun schneller und der Scanner erkennt Barcodes zuverlässiger."
 }
