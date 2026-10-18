@@ -473,9 +473,6 @@ class MainActivity : AppCompatActivity() {
         vibrator.vibrate(VibrationEffect.createOneShot(100, VibrationEffect.DEFAULT_AMPLITUDE))
     }
 
-    private val GITHUB_OWNER = "Rafaellapa20"
-    private val GITHUB_REPO = "ScanMeier"
-
     private fun isVersionNewer(current: String, latest: String): Boolean {
         try {
             val currentParts = current.split(".").mapNotNull { it.toIntOrNull() }
@@ -559,14 +556,13 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     runOnUiThread {
                         progressDialog.dismiss()
-                        Toast.makeText(this, "Fehler bei der Suche (HTTP ${connection.responseCode})", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, "Fehler bei der Suche nach Updates.", Toast.LENGTH_SHORT).show()
                     }
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
+            } catch (_: Exception) {
                 runOnUiThread {
                     progressDialog.dismiss()
-                    Toast.makeText(this, "Verbindungsfehler: ${e.message}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Verbindungsfehler. Bitte Internetverbindung prüfen.", Toast.LENGTH_SHORT).show()
                 }
             }
         }.start()
@@ -641,6 +637,8 @@ class MainActivity : AppCompatActivity() {
         Thread {
             try {
                 val connection = java.net.URL(downloadUrl).openConnection() as java.net.HttpURLConnection
+                connection.instanceFollowRedirects = true
+                connection.setRequestProperty("User-Agent", "Mozilla/5.0")
                 connection.connect()
                 val fileLength = connection.contentLength
                 val input = connection.inputStream
@@ -671,11 +669,10 @@ class MainActivity : AppCompatActivity() {
                     progressDialog.dismiss()
                     installApk(apkFile)
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
+            } catch (_: Exception) {
                 runOnUiThread {
                     progressDialog.dismiss()
-                    Toast.makeText(this, "Download-Fehler: ${e.message}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Download fehlgeschlagen. Bitte versuchen Sie es erneut.", Toast.LENGTH_SHORT).show()
                 }
             }
         }.start()
