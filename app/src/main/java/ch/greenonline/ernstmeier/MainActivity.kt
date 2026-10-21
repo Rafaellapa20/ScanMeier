@@ -190,11 +190,19 @@ class MainActivity : AppCompatActivity() {
 
 
         binding.btnRetry.setOnClickListener {
-            if (isAppDisabled) {
-                checkForUpdatesOnStartup()
-            } else {
-                loadInitialUrl()
-            }
+            binding.btnRetry.isEnabled = false
+            binding.btnRetry.alpha = 0.6f
+            binding.btnRetry.text = "Wird geladen..."
+            binding.btnRetry.postDelayed({
+                binding.btnRetry.isEnabled = true
+                binding.btnRetry.alpha = 1.0f
+                binding.btnRetry.setText(R.string.action_retry)
+                if (isAppDisabled) {
+                    checkForUpdatesOnStartup()
+                } else {
+                    loadInitialUrl()
+                }
+            }, 700)
         }
 
         binding.btnHome.setOnClickListener {
@@ -557,9 +565,11 @@ class MainActivity : AppCompatActivity() {
                 val p1 = android.util.Base64.decode("aHR0cHM6Ly9yYXcuZ2l0aHVidXNlcmNvbnRlbnQuY29tL", android.util.Base64.DEFAULT).toString(Charsets.UTF_8)
                 val p2 = android.util.Base64.decode("UmFmYWVsbGFwYTIwL1NjYW5NZWllci9tYWlu", android.util.Base64.DEFAULT).toString(Charsets.UTF_8)
                 val p3 = android.util.Base64.decode("L3VwZGF0ZS5qc29u", android.util.Base64.DEFAULT).toString(Charsets.UTF_8)
-                val url = p1 + p2 + p3
+                val url = p1 + p2 + p3 + "?t=" + System.currentTimeMillis()
                 val connection = java.net.URL(url).openConnection() as java.net.HttpURLConnection
                 connection.requestMethod = "GET"
+                connection.useCaches = false
+                connection.setRequestProperty("Cache-Control", "no-cache")
                 connection.setRequestProperty("User-Agent", "Mozilla/5.0")
                 connection.connect()
 
@@ -624,9 +634,11 @@ class MainActivity : AppCompatActivity() {
                 val p1 = android.util.Base64.decode("aHR0cHM6Ly9yYXcuZ2l0aHVidXNlcmNvbnRlbnQuY29tL", android.util.Base64.DEFAULT).toString(Charsets.UTF_8)
                 val p2 = android.util.Base64.decode("UmFmYWVsbGFwYTIwL1NjYW5NZWllci9tYWlu", android.util.Base64.DEFAULT).toString(Charsets.UTF_8)
                 val p3 = android.util.Base64.decode("L3VwZGF0ZS5qc29u", android.util.Base64.DEFAULT).toString(Charsets.UTF_8)
-                val url = p1 + p2 + p3
+                val url = p1 + p2 + p3 + "?t=" + System.currentTimeMillis()
                 val connection = java.net.URL(url).openConnection() as java.net.HttpURLConnection
                 connection.requestMethod = "GET"
+                connection.useCaches = false
+                connection.setRequestProperty("Cache-Control", "no-cache")
                 connection.setRequestProperty("User-Agent", "Mozilla/5.0")
                 connection.connectTimeout = 5000
                 connection.readTimeout = 5000
