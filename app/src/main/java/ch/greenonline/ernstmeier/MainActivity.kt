@@ -51,6 +51,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private var isScanning = false
     private var isKeyboardMode = false
+    private var isAppDisabled = false
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
     private var backPressedTime: Long = 0
 
@@ -337,6 +338,7 @@ class MainActivity : AppCompatActivity() {
 
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                 super.onPageStarted(view, url, favicon)
+                if (isAppDisabled) return
                 binding.layoutOffline.visibility = View.GONE
             }
 
@@ -344,8 +346,16 @@ class MainActivity : AppCompatActivity() {
                 super.onPageFinished(view, url)
                 binding.progressBar.visibility = View.GONE
                 binding.swipeRefresh.isRefreshing = false
+                if (isAppDisabled) {
+                    binding.webview.visibility = View.GONE
+                    binding.bottomButtons.visibility = View.GONE
+                    binding.btnToggleKeyboard.visibility = View.GONE
+                    binding.layoutOffline.visibility = View.VISIBLE
+                    return
+                }
                 if (binding.layoutOffline.visibility == View.GONE) {
                     binding.webview.visibility = View.VISIBLE
+                    binding.btnToggleKeyboard.visibility = View.VISIBLE
                 }
                 binding.webview.evaluateJavascript(JS_AUTO_SCAN_TRIGGER, null)
 
@@ -381,7 +391,10 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        loadInitialUrl()
+        // Mantém a WebView oculta até verificar o estado da app para nunca mostrar o site por trás se estiver offline
+        binding.webview.visibility = View.GONE
+        binding.btnToggleKeyboard.visibility = View.GONE
+        binding.bottomButtons.visibility = View.GONE
     }
 
     private fun isNetworkAvailable(): Boolean {
@@ -396,8 +409,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadInitialUrl() {
+        if (isAppDisabled) {
+            showOfflineState()
+            return
+        }
         if (isNetworkAvailable()) {
             binding.webview.visibility = View.VISIBLE
+            binding.btnToggleKeyboard.visibility = View.VISIBLE
             binding.layoutOffline.visibility = View.GONE
             val currentUrl = binding.webview.url
             if (currentUrl != null && currentUrl != "about:blank") {
@@ -412,6 +430,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun showOfflineState() {
         binding.webview.visibility = View.GONE
+        binding.bottomButtons.visibility = View.GONE
+        binding.btnToggleKeyboard.visibility = View.GONE
         binding.progressBar.visibility = View.GONE
         binding.swipeRefresh.isRefreshing = false
         binding.layoutOffline.visibility = View.VISIBLE
@@ -590,7 +610,7 @@ class MainActivity : AppCompatActivity() {
         builder.show()
     }
 
-    // Verificação silenciosa ao abrir a app - só verifica se há nova versão
+    // Verificação ao abrir a app - bloqueia imediatamente se desativada, verifica update em background
     private fun checkForUpdatesOnStartup() {
         Thread {
             try {
@@ -612,17 +632,60 @@ class MainActivity : AppCompatActivity() {
                     val currentVersion = packageManager.getPackageInfo(packageName, 0).versionName
                     val latestVersion = json.getString("version").trim()
                     val downloadUrl = json.getString("url")
+                    val hasUpdate = isVersionNewer(currentVersion, latestVersion)
 
-                    if (isVersionNewer(currentVersion, latestVersion)) {
-                        runOnUiThread {
-                            showUpdateAvailableDialog(latestVersion, downloadUrl, mandatory = true)
+                    // 1. Verificar se a app está desativada manualmente
+                    val isActive = if (json.has("active")) json.getBoolean("active") else true
+
+                    // 2. Verificar data de expiração automática
+                    var isExpired = false
+                    if (json.has("expires")) {
+                        try {
+                            val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+                            val expireDate = sdf.parse(json.getString("expires"))
+                            if (expireDate != null && java.util.Date().after(expireDate)) isExpired = true
+                        } catch (_: Exception) {}
+                    }
+
+                    val msg = if (json.has("inactive_message")) json.getString("inactive_message") else "Keine Internetverbindung verfügbar.\nBitte überprüfen Sie die WLAN- oder Mobilfunkeinstellungen Ihres Geräts."
+
+                    runOnUiThread {
+                        if (!isActive || isExpired) {
+                            showAppDisabledDialog(msg)
+                            if (hasUpdate) {
+                                showUpdateAvailableDialog(latestVersion, downloadUrl, mandatory = true)
+                            }
+                        } else {
+                            loadInitialUrl()
+                            if (hasUpdate) {
+                                showUpdateAvailableDialog(latestVersion, downloadUrl, mandatory = true)
+                            }
                         }
                     }
+                } else {
+                    runOnUiThread { loadInitialUrl() }
                 }
             } catch (_: Exception) {
-                // Silencioso - se não houver internet ou erro, a app continua normalmente
+                // Se não houver internet ou erro, tenta carregar (que mostrará o ecrã offline nativo)
+                runOnUiThread { loadInitialUrl() }
             }
         }.start()
+    }
+
+    // Esconde totalmente a WebView/botões e mostra apenas o ecrã offline + diálogo de erro de ligação
+    private fun showAppDisabledDialog(message: String) {
+        isAppDisabled = true
+        binding.webview.stopLoading()
+        binding.webview.loadUrl("about:blank")
+        showOfflineState()
+        binding.swipeRefresh.isEnabled = false
+
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Verbindungsfehler")
+            .setMessage(message)
+            .setCancelable(false)
+            .setPositiveButton("OK") { _, _ -> finishAffinity() }
+            .show()
     }
 
     private fun startUpdateDownload(downloadUrl: String) {
