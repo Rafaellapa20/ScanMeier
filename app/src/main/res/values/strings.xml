@@ -8,7 +8,7 @@
     <string name="scan_canceled">Scan abgebrochen</string>
     <string name="scan_prompt">Auf den Code richten</string>
     <string name="select_image_title">Bild auswählen</string>
-    <string name="no_internet_title">Keine Internetverbindung</string>
-    <string name="no_internet_message">Bitte überprüfen Sie Ihre Verbindung und versuchen Sie es erneut.</string>
+    <string name="no_internet_title">KEINE INTERNETVERBINDUNG</string>
+    <string name="no_internet_message">Die Anwendung konnte nicht geladen werden, bitte überprüfen Sie Ihre Internetverbindung und versuchen Sie es erneut.</string>
     <string name="action_retry">Erneut versuchen</string>
 </resources>

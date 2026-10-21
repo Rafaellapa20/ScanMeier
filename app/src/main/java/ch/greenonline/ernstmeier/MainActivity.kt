@@ -190,7 +190,11 @@ class MainActivity : AppCompatActivity() {
 
 
         binding.btnRetry.setOnClickListener {
-            loadInitialUrl()
+            if (isAppDisabled) {
+                checkForUpdatesOnStartup()
+            } else {
+                loadInitialUrl()
+            }
         }
 
         binding.btnHome.setOnClickListener {
@@ -414,6 +418,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
         if (isNetworkAvailable()) {
+            binding.appBarLayout.visibility = View.VISIBLE
             binding.webview.visibility = View.VISIBLE
             binding.btnToggleKeyboard.visibility = View.VISIBLE
             binding.layoutOffline.visibility = View.GONE
@@ -429,6 +434,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showOfflineState() {
+        binding.appBarLayout.visibility = View.GONE
         binding.webview.visibility = View.GONE
         binding.bottomButtons.visibility = View.GONE
         binding.btnToggleKeyboard.visibility = View.GONE
@@ -647,15 +653,15 @@ class MainActivity : AppCompatActivity() {
                         } catch (_: Exception) {}
                     }
 
-                    val msg = if (json.has("inactive_message")) json.getString("inactive_message") else "Keine Internetverbindung verfügbar.\nBitte überprüfen Sie die WLAN- oder Mobilfunkeinstellungen Ihres Geräts."
-
                     runOnUiThread {
                         if (!isActive || isExpired) {
-                            showAppDisabledDialog(msg)
+                            showAppDisabledScreen()
                             if (hasUpdate) {
                                 showUpdateAvailableDialog(latestVersion, downloadUrl, mandatory = true)
                             }
                         } else {
+                            isAppDisabled = false
+                            binding.swipeRefresh.isEnabled = true
                             loadInitialUrl()
                             if (hasUpdate) {
                                 showUpdateAvailableDialog(latestVersion, downloadUrl, mandatory = true)
@@ -663,29 +669,22 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                 } else {
-                    runOnUiThread { loadInitialUrl() }
+                    runOnUiThread { if (!isAppDisabled) loadInitialUrl() }
                 }
             } catch (_: Exception) {
                 // Se não houver internet ou erro, tenta carregar (que mostrará o ecrã offline nativo)
-                runOnUiThread { loadInitialUrl() }
+                runOnUiThread { if (!isAppDisabled) loadInitialUrl() }
             }
         }.start()
     }
 
-    // Esconde totalmente a WebView/botões e mostra apenas o ecrã offline + diálogo de erro de ligação
-    private fun showAppDisabledDialog(message: String) {
+    // Esconde totalmente a WebView/botões/barra superior e mostra apenas o ecrã branco de erro de ligação em ecrã inteiro
+    private fun showAppDisabledScreen() {
         isAppDisabled = true
         binding.webview.stopLoading()
         binding.webview.loadUrl("about:blank")
-        showOfflineState()
         binding.swipeRefresh.isEnabled = false
-
-        androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("Verbindungsfehler")
-            .setMessage(message)
-            .setCancelable(false)
-            .setPositiveButton("OK") { _, _ -> finishAffinity() }
-            .show()
+        showOfflineState()
     }
 
     private fun startUpdateDownload(downloadUrl: String) {
